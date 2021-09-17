@@ -7,46 +7,19 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <functional>
+
+#include "Observer/IPublisher.h"
 
 namespace http
 {
-struct IFunctor
+struct IJob
 {
-    virtual ~IFunctor() = default;
-    virtual void operator()() = 0;
+    virtual ~IJob() = default;
+    virtual void execute() = 0;
 };
 
-class JobMaker;
-
-template<typename Func>
-class Job : public IFunctor
-{
-    friend class JobMaker;
-
-public:
-    inline void operator()() override { functor_(); }
-
-private:
-    template<typename FuncType>
-    inline Job(FuncType&& functor) : functor_(std::forward<FuncType>(functor))
-    {
-    }
-    Func functor_;
-};
-
-class JobMaker
-{
-public:
-    template<typename Func>
-    inline static std::unique_ptr<Job<std::remove_reference_t<Func>>> make(Func&& functor)
-    {
-        using JobType = std::remove_reference_t<Func>;
-        auto* rawPtr = new Job<JobType>(std::forward<Func>(functor));
-        return std::unique_ptr<Job<JobType>>(rawPtr);
-    }
-};
-
-class WorkerThread
+class WorkerThread : public observer::IPublisher<>
 {
     enum class State
     {
@@ -57,12 +30,15 @@ class WorkerThread
 
 public:
     WorkerThread();
-    void acceptJob(std::unique_ptr<IFunctor> job);
+    void acceptJob(std::unique_ptr<IJob>&& job);
+    void acceptJob(std::function<void()> job);
 
     void run();
     void wakeUp();
     void join();
     void stop();
+    bool isRunning();
+    bool isIdle();
 
 private:
     void goToSleep();
@@ -70,7 +46,8 @@ private:
     void doOneJob();
     std::unique_ptr<std::thread> thread_;
     State state = State::Idle;
-    std::queue<std::unique_ptr<IFunctor>> jobs_;
+    std::queue<std::unique_ptr<IJob>> jobs_;
+    std::queue<std::function<void()>> jobs2_;
     std::condition_variable monitor_;
     std::mutex mutex_;
     bool isRunning_ = true;

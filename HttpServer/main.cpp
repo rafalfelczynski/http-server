@@ -24,6 +24,7 @@ void fun(WorkerThread* worker)
 int main()
 {
     WorkerThread thr;
+    thr.addObserver([](const std::string& msg){std::cout << "wiadomosc:" << msg << std::endl;});
     std::thread thr2{fun, &thr};
     thr.join();
     return 0;

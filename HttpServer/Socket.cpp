@@ -25,13 +25,15 @@ ADDRINFOA createDefaultConnectionSettings()
 namespace http
 {
 Socket::Socket(std::string hostNameOrAddress, std::string serviceNameOrPort, const unsigned bufferSize)
-: hostNameOrAddress_(std::move(hostNameOrAddress))
-, serviceNameOrPort_(std::move(serviceNameOrPort))
-, bufferSize_(bufferSize)
+    : hostNameOrAddress_(std::move(hostNameOrAddress))
+    , serviceNameOrPort_(std::move(serviceNameOrPort))
+    , bufferSize_(bufferSize)
 {
 }
 
-Socket::~Socket() {}
+Socket::~Socket()
+{
+}
 
 void Socket::bind()
 {
@@ -96,7 +98,9 @@ std::optional<unsigned> Socket::waitForClientToConnect()
     return {clientsHolder_.addNewClient(client)};
 }
 
-void Socket::asyncListenClientToConnect() {}
+void Socket::asyncListenClientToConnect()
+{
+}
 
 std::optional<std::vector<char>> Socket::receiveData(unsigned clientId)
 {
@@ -117,7 +121,7 @@ void Socket::sendData(unsigned clientId, const std::string& msg)
         std::cout << "There is no client with id " << clientId << " The data won't be sent" << std::endl;
         return;
     }
-    send(*client, msg.data(), msg.length(), (int)0);
+    send(*client, msg.data(), msg.length(), 0);
     shutdown(*client, SD_SEND);
 }
 
@@ -163,7 +167,7 @@ bool Socket::createSocketListener()
 
 bool Socket::bindListener()
 {
-    auto bindResult = ::bind(listener_, addressInfo_->ai_addr, addressInfo_->ai_addrlen);
+    auto bindResult = ::bind(listener_, addressInfo_->ai_addr, static_cast<int>(addressInfo_->ai_addrlen));
     if (bindResult == SOCKET_ERROR)
     {
         printf("bind failed with error: %d\n", WSAGetLastError());
@@ -206,4 +210,18 @@ std::vector<char> Socket::processMessage(const SOCKET& client) const
     return receivedMsg;
 }
 
+bool Socket::isBound()
+{
+    return bound_;
+}
+
+void Socket::releaseClient(unsigned clientId)
+{
+    auto client = clientsHolder_.getClient(clientId);
+    if (!client.has_value())
+    {
+        shutdown(*client, SD_BOTH);
+        closesocket(*client);
+    }
+}
 }  // namespace http

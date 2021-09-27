@@ -32,6 +32,8 @@ public:
     void asyncListenClientToConnect();
     std::optional<std::vector<char>> receiveData(unsigned clientId);
     void sendData(unsigned clientId, const std::string& msg);
+    bool isBound();
+    void releaseClient(unsigned clientId);
 
 private:
     bool initializeSocketLib();

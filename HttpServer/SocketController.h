@@ -18,7 +18,7 @@ private:
     void checkForNewClientConnections();
     std::shared_ptr<Socket> &socketInUse_;
     ThreadPool threads_;
-    std::unique_ptr<std::thread> blockingWorker_;
-    std::unique_ptr<std::thread> nonBlockingWorker_;
+    WorkerThread connectionListener_;
+    bool isListening_;
 };
 }  // namespace http

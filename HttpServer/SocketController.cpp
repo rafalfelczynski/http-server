@@ -3,22 +3,35 @@
 namespace http
 {
 SocketController::SocketController(const std::string& hostNameOrAddress, const std::string& serviceNameOrPort)
-: socketInUse_(hostNameOrAddress, serviceNameOrPort)
+    : socketInUse_(std::make_shared<Socket>(hostNameOrAddress, serviceNameOrPort))
+    , threads_(100)
+    , isListening_(true)
 {
-    socketInUse_.bind();
-    if (socketBoundCorrectly())
+    socketInUse_->bind();
+    if (socketInUse_->isBound())
     {
+        waitForNewMessage();
     }
 }
 
 void SocketController::waitForNewMessage()
 {
-    auto clientId = socketInUse_.waitForClientToConnect();
-    if (clientId.has_value())
-    {
-        auto msg = socketInUse_.receiveData(*clientId);
-    }
+    connectionListener_.acceptJob([this]() {
+        while (isListening_)
+        {
+            auto clientId = socketInUse_->waitForClientToConnect();
+            threads_.process([this, clientId]() {
+                if (clientId.has_value())
+                {
+                    ConnectionServant servant{*clientId, socketInUse_};
+                    servant.processClient();
+                }
+            });
+        }
+    });
 }
 
-void SocketController::checkForNewClientConnections() {}
+void SocketController::checkForNewClientConnections()
+{
+}
 }  // namespace http

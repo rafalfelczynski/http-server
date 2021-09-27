@@ -10,6 +10,7 @@
 #include <functional>
 
 #include "Observer/IPublisher.h"
+#include "SafeQueue/SafeQueue.h"
 
 namespace http
 {
@@ -19,7 +20,7 @@ struct IJob
     virtual void execute() = 0;
 };
 
-class WorkerThread : public observer::IPublisher<>
+class WorkerThread : public observer::IPublisher<const std::string&>
 {
     enum class State
     {
@@ -30,24 +31,25 @@ class WorkerThread : public observer::IPublisher<>
 
 public:
     WorkerThread();
-    void acceptJob(std::unique_ptr<IJob>&& job);
+    void acceptJob(std::unique_ptr<IJob> job);
     void acceptJob(std::function<void()> job);
 
     void run();
     void wakeUp();
-    void join();
-    void stop();
+    void waitForThreadToFinishJobs();
+    void kill();
     bool isRunning();
-    bool isIdle();
+    bool hasPendingJobs();
 
 private:
+    void setRunning(bool isRunning);
     void goToSleep();
     void doJobs();
     void doOneJob();
+    void ensureCanFinish();
     std::unique_ptr<std::thread> thread_;
     State state = State::Idle;
-    std::queue<std::unique_ptr<IJob>> jobs_;
-    std::queue<std::function<void()>> jobs2_;
+    collections::SafeQueue<std::unique_ptr<IJob>> jobs_;
     std::condition_variable monitor_;
     std::mutex mutex_;
     bool isRunning_ = true;
@@ -57,9 +59,11 @@ class ThreadPool
 {
 public:
     ThreadPool(unsigned size);
-    void delegate();
+    void process(std::unique_ptr<IJob> job);
+    void process(std::function<void()> job);
+    void freeThreads();
 
 private:
-    std::vector<std::unique_ptr<std::thread>> pool_;
+    std::vector<std::unique_ptr<WorkerThread>> threads_;
 };
 }  // namespace http

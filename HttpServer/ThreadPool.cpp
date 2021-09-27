@@ -9,10 +9,13 @@ WorkerThread::WorkerThread()
 {
 }
 
-void WorkerThread::acceptJob(std::unique_ptr<IJob>&& job)
+void WorkerThread::acceptJob(std::unique_ptr<IJob> job)
 {
-    jobs_.push(std::move(job));
-    wakeUp();
+    if (isRunning())
+    {
+        jobs_.enqueue(std::move(job));
+        wakeUp();
+    }
 }
 
 void WorkerThread::acceptJob(std::function<void()> job)
@@ -29,9 +32,7 @@ void WorkerThread::acceptJob(std::function<void()> job)
         {
         }
     };
-
-    jobs_.push(std::make_unique<AnonymousJob>(std::move(job)));
-    wakeUp();
+    acceptJob(std::make_unique<AnonymousJob>(std::move(job)));
 }
 
 void WorkerThread::run()
@@ -39,9 +40,11 @@ void WorkerThread::run()
     while (isRunning_)
     {
         std::cout << "running" << std::endl;
+        state = State::Running;
         doJobs();
         goToSleep();
     }
+    ensureCanFinish();
     state = State::Stopped;
 }
 
@@ -50,27 +53,51 @@ void WorkerThread::wakeUp()
     monitor_.notify_all();
 }
 
-void WorkerThread::join()
+void WorkerThread::waitForThreadToFinishJobs()
 {
-    thread_->join();
+    setRunning(false);
+    wakeUp();
+    thread_->join();;
 }
 
-void WorkerThread::stop()
+void WorkerThread::kill()
 {
-    isRunning_ = false;
+    setRunning(false);
+    jobs_.clear();
     wakeUp();
+    thread_->join();;
+}
+
+bool WorkerThread::isRunning()
+{
+    std::unique_lock lock(mutex_);
+    return isRunning_;
+}
+
+bool WorkerThread::hasPendingJobs()
+{
+    return !jobs_.isEmpty();
+}
+
+void WorkerThread::setRunning(bool isRunning)
+{
+    std::unique_lock lock(mutex_);
+    isRunning_ = isRunning;
 }
 
 void WorkerThread::goToSleep()
 {
     std::unique_lock lock(mutex_);
     state = State::Idle;
-    monitor_.wait(lock);
+    if (isRunning_)
+    {
+        monitor_.wait(lock);
+    }
 }
 
 void WorkerThread::doJobs()
 {
-    while (!jobs_.empty())
+    while (!jobs_.isEmpty())
     {
         doOneJob();
     }
@@ -78,18 +105,42 @@ void WorkerThread::doJobs()
 
 void WorkerThread::doOneJob()
 {
-    state = State::Running;
-    auto& job = jobs_.front();
-    if(job)
+    auto job = jobs_.dequeue();
+    if (job)
     {
         job->execute();
     }
-    jobs_.pop();
-    state = State::Idle;
+}
+
+void WorkerThread::ensureCanFinish() 
+{
+    doJobs();
 }
 
 ThreadPool::ThreadPool(unsigned size)
 {
-    pool_.reserve(size);
+    threads_.reserve(size);
+}
+
+void ThreadPool::process(std::unique_ptr<IJob> job)
+{
+}
+
+void ThreadPool::process(std::function<void()> job)
+{
+}
+
+void ThreadPool::freeThreads() 
+{
+    for (auto& thread : threads_)
+    {
+        if (thread->hasPendingJobs())
+        {
+            // Give a thread some time (5 seconds) to finish. Kill after timeout
+            // Set timer, waitForThreadToFinishJobs()
+        }else{
+        thread->kill();
+        }
+    }
 }
 }  // namespace http

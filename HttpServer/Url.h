@@ -9,8 +9,9 @@ class Url
 public:
     Url(std::string address);
     const std::string& getAddress() const;
+    bool operator==(const Url&) const = default;
 
 private:
-    std::string address_;
+    std::string mainAddress_;
 };
 }  // namespace http

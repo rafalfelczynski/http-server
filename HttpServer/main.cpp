@@ -4,8 +4,11 @@
 
 #include "Socket.h"
 #include "ThreadPool.h"
+#include "HttpServer.h"
 
 using namespace http;
+using namespace std;
+using namespace std::chrono;
 using namespace std::chrono_literals;
 
 void fun(WorkerThread* worker)
@@ -21,11 +24,20 @@ void fun(WorkerThread* worker)
     }
 }
 
+int findLastCharFromRight(const std::string& s, char ch)
+{
+    int index = s.size() - 1;
+    while (index >= 0 && s[index] == ch)
+    {
+        --index;
+    }
+    return index+1;
+}
+
 int main()
 {
-    WorkerThread thr;
-    thr.addObserver([](const std::string& msg){std::cout << "wiadomosc:" << msg << std::endl;});
-    std::thread thr2{fun, &thr};
-    thr.join();
+    HttpServer server{"localhost"};
+    server.registerCallback(HttpMethod::Get, Url("/students"), [](auto)->auto{ std::cout << "wiadomosc" << std::endl; return HttpResponse{}; });
+    server.run();
     return 0;
 }

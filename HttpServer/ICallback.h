@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include "HttpRequest.h"
+#include "HttpResponse.h"
 
 namespace http
 {
@@ -13,7 +15,7 @@ public:
         ErrorDuringCallback
     };
     virtual ~ICallback() = default;
-    virtual ResultCode operator()() = 0;
+    virtual HttpResponse operator()(HttpRequest req) = 0;
     inline const std::string& getLastError(){ return errorDescription_; };
 
 protected:

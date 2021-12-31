@@ -57,7 +57,8 @@ void WorkerThread::waitForThreadToFinishJobs()
 {
     setRunning(false);
     wakeUp();
-    thread_->join();;
+    thread_->join();
+    ;
 }
 
 void WorkerThread::kill()
@@ -65,7 +66,7 @@ void WorkerThread::kill()
     setRunning(false);
     jobs_.clear();
     wakeUp();
-    thread_->join();;
+    thread_->join();
 }
 
 bool WorkerThread::isRunning()
@@ -77,6 +78,11 @@ bool WorkerThread::isRunning()
 bool WorkerThread::hasPendingJobs()
 {
     return !jobs_.isEmpty();
+}
+
+void WorkerThread::join() 
+{
+    thread_->join();
 }
 
 void WorkerThread::setRunning(bool isRunning)
@@ -112,7 +118,7 @@ void WorkerThread::doOneJob()
     }
 }
 
-void WorkerThread::ensureCanFinish() 
+void WorkerThread::ensureCanFinish()
 {
     doJobs();
 }
@@ -120,6 +126,10 @@ void WorkerThread::ensureCanFinish()
 ThreadPool::ThreadPool(unsigned size)
 {
     threads_.reserve(size);
+    for (unsigned i = 0; i < size; i++)
+    {
+        threads_.emplace_back(std::make_unique<WorkerThread>());
+    }
 }
 
 void ThreadPool::process(std::unique_ptr<IJob> job)
@@ -128,9 +138,11 @@ void ThreadPool::process(std::unique_ptr<IJob> job)
 
 void ThreadPool::process(std::function<void()> job)
 {
+    // choose next free thread
+    threads_[0]->acceptJob(std::move(job));
 }
 
-void ThreadPool::freeThreads() 
+void ThreadPool::freeThreads()
 {
     for (auto& thread : threads_)
     {
@@ -138,9 +150,19 @@ void ThreadPool::freeThreads()
         {
             // Give a thread some time (5 seconds) to finish. Kill after timeout
             // Set timer, waitForThreadToFinishJobs()
-        }else{
-        thread->kill();
         }
+        else
+        {
+            thread->kill();
+        }
+    }
+}
+
+void ThreadPool::joinAll() 
+{
+    for(auto&thr : threads_)
+    {
+        thr->join();
     }
 }
 }  // namespace http

@@ -20,7 +20,7 @@ struct IJob
     virtual void execute() = 0;
 };
 
-class WorkerThread : public observer::IPublisher<const std::string&>
+class WorkerThread
 {
     enum class State
     {
@@ -40,6 +40,7 @@ public:
     void kill();
     bool isRunning();
     bool hasPendingJobs();
+    void join();
 
 private:
     void setRunning(bool isRunning);
@@ -47,6 +48,7 @@ private:
     void doJobs();
     void doOneJob();
     void ensureCanFinish();
+
     std::unique_ptr<std::thread> thread_;
     State state = State::Idle;
     collections::SafeQueue<std::unique_ptr<IJob>> jobs_;
@@ -62,6 +64,7 @@ public:
     void process(std::unique_ptr<IJob> job);
     void process(std::function<void()> job);
     void freeThreads();
+    void joinAll();
 
 private:
     std::vector<std::unique_ptr<WorkerThread>> threads_;

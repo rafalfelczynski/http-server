@@ -8,9 +8,12 @@ namespace
 {
 constexpr int DEFUALT_NUM_OF_CLIENTS = 1000;
 }
-SocketClientsHolder::SocketClientsHolder() { clients_.reserve(DEFUALT_NUM_OF_CLIENTS); }
+SocketClientsHolder::SocketClientsHolder()
+{
+    clients_.reserve(DEFUALT_NUM_OF_CLIENTS);
+}
 
-std::optional<SOCKET> SocketClientsHolder::getClient(unsigned clientId)
+std::optional<SOCKET> SocketClientsHolder::getClient(unsigned clientId) const
 {
     auto clientIter = clients_.find(clientId);
     if (clientIter != clients_.end())
@@ -27,7 +30,7 @@ unsigned SocketClientsHolder::addNewClient(const SOCKET& client)
     return clientId;
 }
 
-std::vector<unsigned> SocketClientsHolder::getAllClientIds()
+std::vector<unsigned> SocketClientsHolder::getAllClientIds() const
 {
     std::vector<unsigned> clientIds;
     clientIds.reserve(clients_.size());
@@ -38,7 +41,10 @@ std::vector<unsigned> SocketClientsHolder::getAllClientIds()
     return clientIds;
 }
 
-SOCKET SocketClientsHolder::operator[](unsigned clientId) { return clients_[clientId]; }
+SOCKET SocketClientsHolder::operator[](unsigned clientId) const
+{
+    return clients_.at(clientId);
+}
 
 unsigned SocketClientsHolder::chooseNextId()
 {

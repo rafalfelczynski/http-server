@@ -11,10 +11,10 @@ class SocketClientsHolder
 {
 public:
     SocketClientsHolder();
-    std::optional<SOCKET> getClient(unsigned clientId);
+    std::optional<SOCKET> getClient(unsigned clientId) const;
     unsigned addNewClient(const SOCKET& client);
-    std::vector<unsigned> getAllClientIds();
-    SOCKET operator[](unsigned clientId);
+    std::vector<unsigned> getAllClientIds() const;
+    SOCKET operator[](unsigned clientId) const;
 
 private:
     unsigned chooseNextId();

@@ -2,6 +2,6 @@
 
 namespace http
 {
-Url::Url(std::string address) : address_(address) {}
-const std::string& Url::getAddress() const { return address_; }
+Url::Url(std::string address) : mainAddress_(address) {}
+const std::string& Url::getAddress() const { return mainAddress_; }
 }  // namespace http

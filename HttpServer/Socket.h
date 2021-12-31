@@ -23,27 +23,28 @@ namespace http
 class Socket
 {
 public:
-    Socket(std::string hostNameOrAddress, std::string serviceNameOrPort = "http", const unsigned bufferSize = 512);
+    Socket(std::string host, std::string service = "http", unsigned bufferSize = 2048);
     ~Socket();
     void bind();
     void release();
     void setInListeningState();
     std::optional<unsigned> waitForClientToConnect();
     void asyncListenClientToConnect();
-    std::optional<std::vector<char>> receiveData(unsigned clientId);
-    void sendData(unsigned clientId, const std::string& msg);
-    bool isBound();
-    void releaseClient(unsigned clientId);
+    std::optional<std::string> receiveData(unsigned clientId) const;
+    void sendData(unsigned clientId, const std::string& msg) const;
+    bool isBound() const;
+    void releaseClient(unsigned clientId) const;
 
 private:
     bool initializeSocketLib();
     bool getSocketAddressInfo();
     bool createSocketListener();
     bool bindListener();
-    int processPartOfMsg(const SOCKET& client, std::vector<char>& receivedMsg) const;
-    std::vector<char> processMessage(const SOCKET& client) const;
-    std::string hostNameOrAddress_;
-    std::string serviceNameOrPort_;
+    int processPartOfMsg(const SOCKET& client, std::string& receivedMsg) const;
+    std::string processMessage(const SOCKET& client) const;
+
+    std::string host_;
+    std::string service_;
     const unsigned bufferSize_;
     bool bound_ = false;
     ADDRINFO* addressInfo_ = nullptr;

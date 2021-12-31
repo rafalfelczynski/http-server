@@ -2,23 +2,40 @@
 
 #include <thread>
 
+#include "Observer/IPublisher.h"
+#include "Observer/ISubscriber.h"
+
+#include "SocketClientDataReceiver.h"
 #include "Socket.h"
 #include "ThreadPool.h"
-#include "ConnectionServant.h"
 
 namespace http
 {
-class SocketController
+class ConnectionListener : public observer::IPublisher<unsigned>
 {
 public:
-    SocketController(const std::string& hostNameOrAddress, const std::string& serviceNameOrPort="http");
+    ConnectionListener(const std::shared_ptr<Socket>& socket);
+    void setUp();
+    void join();
 
 private:
-    void waitForNewMessage();
-    void checkForNewClientConnections();
-    std::shared_ptr<Socket> &socketInUse_;
-    ThreadPool threads_;
-    WorkerThread connectionListener_;
+    std::shared_ptr<Socket> socket_;
+    ThreadPool connectionListener_;
     bool isListening_;
+};
+
+class SocketController : private observer::ISubscriber<unsigned>, public observer::ISubscriber<ReceivedClientData>, public observer::IPublisher<ReceivedClientData>
+{
+public:
+    SocketController(std::string hostNameOrAddress, std::string serviceNameOrPort = "http");
+    void join();
+
+private:
+    void onPublisherNotification(const unsigned& clientId) override;
+    void onPublisherNotification(const ReceivedClientData& clientData) override;
+    void checkForNewClientConnections();
+    std::shared_ptr<Socket> socketInUse_;
+    ConnectionListener connectionListener_;
+    SocketClientDataReceiver clientController_;
 };
 }  // namespace http

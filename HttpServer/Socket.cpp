@@ -24,9 +24,9 @@ ADDRINFOA createDefaultConnectionSettings()
 
 namespace http
 {
-Socket::Socket(std::string hostNameOrAddress, std::string serviceNameOrPort, const unsigned bufferSize)
-    : hostNameOrAddress_(std::move(hostNameOrAddress))
-    , serviceNameOrPort_(std::move(serviceNameOrPort))
+Socket::Socket(std::string host, std::string service, unsigned bufferSize)
+    : host_(std::move(host))
+    , service_(std::move(service))
     , bufferSize_(bufferSize)
 {
 }
@@ -102,7 +102,7 @@ void Socket::asyncListenClientToConnect()
 {
 }
 
-std::optional<std::vector<char>> Socket::receiveData(unsigned clientId)
+std::optional<std::string> Socket::receiveData(unsigned clientId) const
 {
     auto client = clientsHolder_.getClient(clientId);
     if (!client.has_value())
@@ -113,7 +113,7 @@ std::optional<std::vector<char>> Socket::receiveData(unsigned clientId)
     return {processMessage(*client)};
 }
 
-void Socket::sendData(unsigned clientId, const std::string& msg)
+void Socket::sendData(unsigned clientId, const std::string& msg) const
 {
     auto client = clientsHolder_.getClient(clientId);
     if (!client.has_value())
@@ -142,7 +142,7 @@ bool Socket::getSocketAddressInfo()
 {
     auto connectionSettings = createDefaultConnectionSettings();
     auto addrinfoResult =
-        getaddrinfo(hostNameOrAddress_.c_str(), serviceNameOrPort_.c_str(), &connectionSettings, &addressInfo_);
+        getaddrinfo(host_.c_str(), service_.c_str(), &connectionSettings, &addressInfo_);
     if (addrinfoResult != 0)
     {
         printf("getaddrinfo failed with error: %d\n", addrinfoResult);
@@ -179,10 +179,9 @@ bool Socket::bindListener()
     return true;
 }
 
-int Socket::processPartOfMsg(const SOCKET& client, std::vector<char>& receivedMsg) const
+int Socket::processPartOfMsg(const SOCKET& client, std::string& receivedMsg) const
 {
-    std::vector<char> msgPart;
-    msgPart.resize(bufferSize_);
+    std::string msgPart(bufferSize_, '\0');
     auto numOfBytes = recv(client, msgPart.data(), bufferSize_, 0);
     if (numOfBytes == SOCKET_ERROR)
     {
@@ -196,11 +195,10 @@ int Socket::processPartOfMsg(const SOCKET& client, std::vector<char>& receivedMs
     return numOfBytes;
 }
 
-std::vector<char> Socket::processMessage(const SOCKET& client) const
+std::string Socket::processMessage(const SOCKET& client) const
 {
     // Receive until the peer shuts down the connection
-    std::vector<char> receivedMsg;
-    receivedMsg.reserve(bufferSize_);
+    std::string receivedMsg(bufferSize_, '\0');
     auto numOfBytes = 0;
     do
     {
@@ -210,12 +208,12 @@ std::vector<char> Socket::processMessage(const SOCKET& client) const
     return receivedMsg;
 }
 
-bool Socket::isBound()
+bool Socket::isBound() const
 {
     return bound_;
 }
 
-void Socket::releaseClient(unsigned clientId)
+void Socket::releaseClient(unsigned clientId) const
 {
     auto client = clientsHolder_.getClient(clientId);
     if (!client.has_value())

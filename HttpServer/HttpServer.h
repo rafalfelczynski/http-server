@@ -6,32 +6,53 @@
 #include <string>
 
 #include "ClientInfo.h"
-#include "SocketController.h"
-#include "Url.h"
+#include "HttpMethod.h"
 #include "ICallback.h"
 #include "RequestWorker.h"
-#include "HttpMethod.h"
+#include "SocketController.h"
+#include "Url.h"
 
 namespace http
 {
-class HttpServer
+struct Endpoint
+{
+    Url url;
+    HttpMethod method;
+    Endpoint(Url url, HttpMethod method)
+        : url(std::move(url))
+        , method(method)
+    {
+    }
+    bool operator==(const Endpoint&) const = default;
+};
+}  // namespace http
+
+namespace std
+{
+template<>
+struct hash<http::Endpoint>
+{
+    size_t operator()(const http::Endpoint& endpoint) const
+    {
+        return 0;
+    }
+};
+}  // namespace std
+
+namespace http
+{
+class HttpServer : private observer::ISubscriber<ReceivedClientData>
 {
 public:
     HttpServer(std::string serverName);
-    void registerCallback(HttpMethod method, const Url& url, const ICallback& callback);
+    void registerCallback(HttpMethod method, const Url& url, std::unique_ptr<ICallback> callback);
+    void registerCallback(HttpMethod method, const Url& url, std::function<HttpResponse(HttpRequest)> function);
 
-    template<typename ReturnType, typename... FunctionArgs>
-    void registerCallback(HttpMethod method, const Url& url, ReturnType(*function)(FunctionArgs...))
-    {
-        // class TemporaryCallback : public ICallback
-        // {
-        // } callback;
-        // registerCallback(method, url, callback);
-    }
+    void run();
 
 private:
-    std::string serverName_;
+    void onPublisherNotification(const ReceivedClientData& clientData) override;
     std::unique_ptr<SocketController> socketController_;
-    std::map<unsigned long long, RequestWorker> incomingRequests_;
+    std::unordered_map<Endpoint, std::unique_ptr<ICallback>> callbacks_;
 };
 }  // namespace http

@@ -1,40 +1,35 @@
 #pragma once
 
-#include <map>
+#include <unordered_set>
 #include <memory>
+
+#include "ISubscriber.h"
 
 namespace observer
 {
 template<typename... DataType>
-class IPublisher
+struct IPublisher
 {
-public:
     virtual ~IPublisher() = default;
-    virtual unsigned addObserver(std::function<void(const DataType&...)> obs)
+    virtual void addObserver(ISubscriber<DataType...>* obs)
     {
-        observers_.emplace(nextKey_, std::move(obs));
-        return nextKey_++;
+        observers_.insert(obs);
     }
 
-    virtual void removeObserver(const unsigned key)
+    virtual void removeObserver(ISubscriber<DataType...>* obs)
     {
-        auto observer = observers_.find(key);
-        if (observer != observers_.end())
-        {
-            observers_.erase(observer);
-        }
+        observers_.erase(obs);
     }
 
-    virtual void notifyObservers(const DataType&... data)
+    virtual void publish(const DataType&... data)
     {
-        for (const auto& obs : observers_)
+        for (auto* observer : observers_)
         {
-            obs.second(data...);
+            observer->onPublisherNotification(data...);
         }
     }
 
 protected:
-    std::map<unsigned, std::function<void(const DataType&...)>> observers_;
-    unsigned nextKey_ = 0;
+    std::unordered_set<ISubscriber<DataType...>*> observers_;
 };
 }  // namespace observer

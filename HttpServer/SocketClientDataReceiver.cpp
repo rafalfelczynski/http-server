@@ -22,6 +22,7 @@ void SocketClientDataReceiver::asyncReceiveData(unsigned clientId)
             std::cout << "Error. Client removed before processing the connection." << std::endl;
             return;
         }
+        std::cout << "Otrzymana wiadomosc ma dlugosc: " << msg->size() << std::endl;
         this->publish(ReceivedClientData{clientId, std::move(*msg)});
         //callback msg
         // send response

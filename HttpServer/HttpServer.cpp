@@ -38,7 +38,7 @@ namespace http
     {
         // parse string to http request
         // validate request and call callback
-        auto endpoint = Endpoint(Url("/student"), HttpMethod::Get); // get from request
+        auto endpoint = Endpoint(Url("/students"), HttpMethod::Get); // get from request
         if(!callbacks_.contains(endpoint))
         {
             //send response with error

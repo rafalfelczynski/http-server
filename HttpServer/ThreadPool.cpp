@@ -39,10 +39,10 @@ void WorkerThread::run()
 {
     while (isRunning_)
     {
+        goToSleep();
         std::cout << "running" << std::endl;
         state = State::Running;
         doJobs();
-        goToSleep();
     }
     ensureCanFinish();
     state = State::Stopped;

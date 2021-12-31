@@ -198,13 +198,13 @@ int Socket::processPartOfMsg(const SOCKET& client, std::string& receivedMsg) con
 std::string Socket::processMessage(const SOCKET& client) const
 {
     // Receive until the peer shuts down the connection
-    std::string receivedMsg(bufferSize_, '\0');
+    std::string receivedMsg;
+    receivedMsg.reserve(bufferSize_);
     auto numOfBytes = 0;
     do
     {
         numOfBytes = processPartOfMsg(client, receivedMsg);
     } while (numOfBytes > 0);
-    receivedMsg.shrink_to_fit();
     return receivedMsg;
 }
 

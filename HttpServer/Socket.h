@@ -6,6 +6,7 @@
 #else
 // if windows include:
 #ifdef _WIN32
+#define NOMINMAX
 #include <WS2tcpip.h>
 #include <WinSock2.h>
 #endif

@@ -1,6 +1,7 @@
 #pragma once
 #include <mutex>
-#include <queue>
+#include <deque>
+#include <optional>
 
 namespace collections
 {
@@ -8,13 +9,13 @@ template<typename Type>
 class SafeQueue
 {
 public:
-    inline bool isEmpty()
+    inline bool empty() const
     {
         std::lock_guard lock(mutex_);
         return queue_.empty();
     }
 
-    inline size_t size()
+    inline size_t size() const
     {
         std::lock_guard lock(mutex_);
         return queue_.size();
@@ -24,25 +25,37 @@ public:
     inline void enqueue(Element&& element)
     {
         std::lock_guard lock(mutex_);
-        queue_.push(std::forward<Element>(element));
+        queue_.emplace_back(std::forward<Element>(element));
     }
 
-    inline Type dequeue()
+    // inline Type dequeue()
+    // {
+    //     std::lock_guard lock(mutex_);
+    //     auto element{std::move(queue_.front())};
+    //     queue_.pop();
+    //     return element;
+    // }
+
+    inline std::optional<Type> dequeue()
     {
         std::lock_guard lock(mutex_);
+        if(queue_.empty())
+        {
+            return {};
+        }
         auto element{std::move(queue_.front())};
-        queue_.pop();
+        queue_.pop_front();
         return element;
     }
 
     inline void clear()
     {
         std::lock_guard lock(mutex_);
-        queue_ = std::queue<Type>();
+        queue_.clear();
     }
 
 private:
-    std::queue<Type> queue_;
-    std::mutex mutex_;
+    std::deque<Type> queue_;
+    mutable std::mutex mutex_;
 };
 }  // namespace collections

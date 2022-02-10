@@ -20,6 +20,7 @@ class SocketClientDataReceiver : public observer::IPublisher<ReceivedClientData>
 public:
     SocketClientDataReceiver(const std::shared_ptr<Socket>& socket);
     void asyncReceiveData(unsigned clientId); // should be async
+    void asyncSendData(unsigned clientId, const std::string& data);
 
 private:
     std::shared_ptr<Socket> socket_;

@@ -29,6 +29,7 @@ class SocketController : private observer::ISubscriber<unsigned>, public observe
 public:
     SocketController(std::string hostNameOrAddress, std::string serviceNameOrPort = "http");
     void join();
+    void sendBack(unsigned clientId, const std::string& msg);
 
 private:
     void onPublisherNotification(const unsigned& clientId) override;

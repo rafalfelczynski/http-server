@@ -2,10 +2,12 @@
 
 #include <iostream>
 
+#include "ThirdParty/Timer.hpp"
+
 namespace http
 {
 WorkerThread::WorkerThread()
-    : thread_(std::make_unique<std::thread>([this]() { run(); }))
+    : isRunning_{true}, isExecutingJob_{false}, thread_(std::make_unique<std::thread>([this]() { run(); }))
 {
 }
 
@@ -32,19 +34,22 @@ void WorkerThread::acceptJob(std::function<void()> job)
         {
         }
     };
-    acceptJob(std::make_unique<AnonymousJob>(std::move(job)));
+    if (isRunning())
+    {
+        jobs_.enqueue(std::make_unique<AnonymousJob>(std::move(job)));
+        wakeUp();
+    }
 }
 
 void WorkerThread::run()
 {
     while (isRunning_)
     {
-        goToSleep();
-        std::cout << "running" << std::endl;
         state = State::Running;
         doJobs();
+        goToSleep();
     }
-    ensureCanFinish();
+    // ensureCanFinish();
     state = State::Stopped;
 }
 
@@ -53,20 +58,15 @@ void WorkerThread::wakeUp()
     monitor_.notify_all();
 }
 
-void WorkerThread::waitForThreadToFinishJobs()
-{
-    setRunning(false);
-    wakeUp();
-    thread_->join();
-    ;
-}
-
 void WorkerThread::kill()
 {
     setRunning(false);
     jobs_.clear();
     wakeUp();
-    thread_->join();
+    if (thread_->joinable())
+    {
+        thread_->detach();
+    }
 }
 
 bool WorkerThread::isRunning()
@@ -77,12 +77,21 @@ bool WorkerThread::isRunning()
 
 bool WorkerThread::hasPendingJobs()
 {
-    return !jobs_.isEmpty();
+    return !jobs_.empty();
 }
 
-void WorkerThread::join() 
+void WorkerThread::join()
 {
-    thread_->join();
+    if (thread_->joinable())
+    {
+        thread_->join();
+    }
+}
+
+unsigned WorkerThread::getNumOfPendingJobs() const
+{
+    const auto numOfJobs = static_cast<unsigned>(jobs_.size());
+    return isExecutingJob_ ? numOfJobs+1 : numOfJobs;
 }
 
 void WorkerThread::setRunning(bool isRunning)
@@ -103,7 +112,7 @@ void WorkerThread::goToSleep()
 
 void WorkerThread::doJobs()
 {
-    while (!jobs_.isEmpty())
+    while (!jobs_.empty())
     {
         doOneJob();
     }
@@ -114,8 +123,11 @@ void WorkerThread::doOneJob()
     auto job = jobs_.dequeue();
     if (job)
     {
-        job->execute();
+        isExecutingJob_ = true;
+        std::cout << "job->execute()" << std::endl;
+        (*job)->execute();
     }
+    isExecutingJob_ = false;
 }
 
 void WorkerThread::ensureCanFinish()
@@ -124,7 +136,14 @@ void WorkerThread::ensureCanFinish()
 }
 
 ThreadPool::ThreadPool(unsigned size)
+    : readyToBeDestroyed_(false)
+    , threadsToBeDestroyedCounter_(size)
 {
+    if (size <= 0)
+    {
+        throw std::invalid_argument("Thread pool size should be greater than 0");
+    }
+
     threads_.reserve(size);
     for (unsigned i = 0; i < size; i++)
     {
@@ -132,14 +151,19 @@ ThreadPool::ThreadPool(unsigned size)
     }
 }
 
+ThreadPool::~ThreadPool() 
+{
+    freeThreads();
+}
+
 void ThreadPool::process(std::unique_ptr<IJob> job)
 {
+    getFreeThread()->acceptJob(std::move(job));
 }
 
 void ThreadPool::process(std::function<void()> job)
 {
-    // choose next free thread
-    threads_[0]->acceptJob(std::move(job));
+    getFreeThread()->acceptJob(std::move(job));
 }
 
 void ThreadPool::freeThreads()
@@ -148,21 +172,44 @@ void ThreadPool::freeThreads()
     {
         if (thread->hasPendingJobs())
         {
-            // Give a thread some time (5 seconds) to finish. Kill after timeout
-            // Set timer, waitForThreadToFinishJobs()
+            std::cout << "thread has pending jobes" << std::endl;
+            timer::SingleShotTimer::call(5000, [this, &thread]() {
+                std::cout << "killing thread" << std::endl;
+                thread->kill();
+                std::cout << "thread killed" << std::endl;
+                this->threadsToBeDestroyedCounter_--;
+                this->threadsToBeDestroyedMonitor_.notify_all();
+            });
         }
         else
         {
+            std::cout << "thread has no pending jobes. killing" << std::endl;
             thread->kill();
+            std::cout << "thread killed" << std::endl;
         }
     }
+    timer::SingleShotTimer::call(5000, [this]() {
+        std::unique_lock lock(threadsToBeDestroyedMutex_);
+        std::cout << "starting to wait for all threads to finish" << std::endl;
+        threadsToBeDestroyedMonitor_.wait(lock, [this]() { return threadsToBeDestroyedCounter_ == 0; });
+        this->readyToBeDestroyed_ = true;
+        std::cout << "cleared list of threads" << std::endl;
+        threads_.clear();
+    });
 }
 
-void ThreadPool::joinAll() 
+void ThreadPool::joinAll()
 {
-    for(auto&thr : threads_)
+    for (auto& thr : threads_)
     {
         thr->join();
     }
+}
+
+std::unique_ptr<WorkerThread>& ThreadPool::getFreeThread()
+{
+    return *std::min_element(threads_.begin(), threads_.end(), [](auto& thr1, auto& thr2) {
+        return thr1->getNumOfPendingJobs() < thr2->getNumOfPendingJobs();
+    });
 }
 }  // namespace http

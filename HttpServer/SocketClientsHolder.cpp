@@ -1,5 +1,7 @@
 #include "SocketClientsHolder.h"
 
+#include <WinSock2.h>
+#include <functional>
 #include <algorithm>
 
 namespace http
@@ -23,8 +25,14 @@ std::optional<SOCKET> SocketClientsHolder::getClient(unsigned clientId) const
     return {};
 }
 
-unsigned SocketClientsHolder::addNewClient(const SOCKET& client)
+unsigned SocketClientsHolder::getOrAddSocketClient(const SOCKET& client)
 {
+    const auto& clientIt = std::find_if(clients_.begin(), clients_.end(), [&client](const auto& idSocket){return client == idSocket.second;});
+    if(clientIt != clients_.end())
+    {
+        return clientIt->first;
+    }
+
     auto clientId = chooseNextId();
     clients_.insert({clientId, client});
     return clientId;

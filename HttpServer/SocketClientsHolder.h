@@ -3,6 +3,7 @@
 #include <optional>
 #include <unordered_map>
 #include <vector>
+
 #include <WinSock2.h>
 
 namespace http
@@ -12,7 +13,7 @@ class SocketClientsHolder
 public:
     SocketClientsHolder();
     std::optional<SOCKET> getClient(unsigned clientId) const;
-    unsigned addNewClient(const SOCKET& client);
+    unsigned getOrAddSocketClient(const SOCKET& client);
     std::vector<unsigned> getAllClientIds() const;
     SOCKET operator[](unsigned clientId) const;
 

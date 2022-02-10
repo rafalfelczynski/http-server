@@ -21,6 +21,8 @@ add_executable(HttpServer
     HttpServer/SocketController.cpp
     HttpServer/SocketClientDataReceiver.cpp
     HttpServer/Url.cpp
+    HttpServer/HtmlDecoder.cpp
+    HttpServer/FileReader.cpp
 )
 
 ExternalProject_Add(Timer

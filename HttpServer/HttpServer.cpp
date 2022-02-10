@@ -4,8 +4,10 @@
 
 namespace http
 {
+    using CallbackFcn = std::function<std::string(HttpRequest)>;
+
     HttpServer::HttpServer(std::string serverName)
-    : socketController_(std::make_unique<SocketController>(std::move(serverName)))
+    : socketController_(std::make_unique<SocketController>(std::move(serverName), "http"))
     {
         socketController_->addObserver(this);
     }
@@ -15,13 +17,13 @@ namespace http
         callbacks_.emplace(Endpoint{url, method}, std::move(callback));
     }
 
-    void HttpServer::registerCallback(HttpMethod method, const Url& url, std::function<HttpResponse(HttpRequest)> function)
+    void HttpServer::registerCallback(HttpMethod method, const Url& url, CallbackFcn function)
     {
         struct TemporaryCallback : public ICallback
         {
-            TemporaryCallback(std::function<HttpResponse(HttpRequest)> function) : function_(std::move(function)){}
-            HttpResponse operator()(HttpRequest req) override{ return function_(std::move(req)); }
-            std::function<HttpResponse(HttpRequest)> function_;
+            TemporaryCallback(CallbackFcn function) : function_(std::move(function)){}
+            std::string operator()(HttpRequest req) override{ return function_(std::move(req)); }
+            CallbackFcn function_;
         };
         std::unique_ptr<ICallback> callback = std::make_unique<TemporaryCallback>(std::move(function));
         registerCallback(method, url, std::move(callback));
@@ -38,6 +40,7 @@ namespace http
     {
         // parse string to http request
         // validate request and call callback
+        std::cout << "data received" << std::endl;
         auto endpoint = Endpoint(Url("/students"), HttpMethod::Get); // get from request
         if(!callbacks_.contains(endpoint))
         {
@@ -45,7 +48,8 @@ namespace http
             std::cout << "endpoint not set on server" << std::endl;
             return;
         }
-        (*callbacks_[endpoint])(HttpRequest{});
+        auto responseStr = (*callbacks_[endpoint])(HttpRequest{});
+        socketController_->sendBack(clientData.clientId, responseStr);
     }
 
 

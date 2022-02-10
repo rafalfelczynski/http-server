@@ -95,7 +95,7 @@ std::optional<unsigned> Socket::waitForClientToConnect()
         closesocket(client);
         return {};
     }
-    return {clientsHolder_.addNewClient(client)};
+    return {clientsHolder_.getOrAddSocketClient(client)};
 }
 
 void Socket::asyncListenClientToConnect()
@@ -122,7 +122,6 @@ void Socket::sendData(unsigned clientId, const std::string& msg) const
         return;
     }
     send(*client, msg.data(), msg.length(), 0);
-    shutdown(*client, SD_SEND);
 }
 
 bool Socket::initializeSocketLib()
@@ -162,6 +161,8 @@ bool Socket::createSocketListener()
         WSACleanup();
         return false;
     }
+    // u_long mode = 1;  // 1 to enable non-blocking socket
+    // ioctlsocket(listener_, FIONBIO, &mode);
     return true;
 }
 
@@ -182,15 +183,24 @@ bool Socket::bindListener()
 int Socket::processPartOfMsg(const SOCKET& client, std::string& receivedMsg) const
 {
     std::string msgPart(bufferSize_, '\0');
-    auto numOfBytes = recv(client, msgPart.data(), bufferSize_, 0);
-    if (numOfBytes == SOCKET_ERROR)
+    fd_set clientSocketSet;
+    clientSocketSet.fd_count = 1;
+    clientSocketSet.fd_array[0] = client;
+    timeval timeout{0, 10};
+    auto numOfReadySockets = select(0, &clientSocketSet, nullptr, nullptr, &timeout);
+    int numOfBytes = 0;
+    if (numOfReadySockets > 0)
     {
-        printf("recv failed with error: %d\n", WSAGetLastError());
-        return -1;
-    }
-    else if (numOfBytes > 0)
-    {
-        receivedMsg.insert(receivedMsg.end(), msgPart.data(), msgPart.data() + numOfBytes);
+        numOfBytes = recv(client, msgPart.data(), bufferSize_, 0);
+        if (numOfBytes == SOCKET_ERROR)
+        {
+            printf("recv failed with error: %d\n", WSAGetLastError());
+            return -1;
+        }
+        else if (numOfBytes > 0)
+        {
+            receivedMsg.insert(receivedMsg.end(), msgPart.data(), msgPart.data() + numOfBytes);
+        }
     }
     return numOfBytes;
 }
@@ -204,7 +214,9 @@ std::string Socket::processMessage(const SOCKET& client) const
     do
     {
         numOfBytes = processPartOfMsg(client, receivedMsg);
+        std::cout << "receiveing client: " << client << " " << receivedMsg.size() << " " << numOfBytes << std::endl;
     } while (numOfBytes > 0);
+    std::cout << "finished receiveing loop client: " << client << " \n" << receivedMsg << std::endl;
     return receivedMsg;
 }
 

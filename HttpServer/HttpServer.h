@@ -46,7 +46,7 @@ class HttpServer : private observer::ISubscriber<ReceivedClientData>
 public:
     HttpServer(std::string serverName);
     void registerCallback(HttpMethod method, const Url& url, std::unique_ptr<ICallback> callback);
-    void registerCallback(HttpMethod method, const Url& url, std::function<HttpResponse(HttpRequest)> function);
+    void registerCallback(HttpMethod method, const Url& url, std::function<std::string(HttpRequest)> function);
 
     void run();
 

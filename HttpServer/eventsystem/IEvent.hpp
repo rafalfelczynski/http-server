@@ -46,13 +46,3 @@ struct IEvent
         return eventPtr;
     }
 };
-
-struct FuckEvent : public IEvent
-{
-    static constexpr auto EVENT_TYPE = "FuckEvent";
-    EventType type() const override { return EVENT_TYPE; }
-    void fuckMe()
-    {
-        std::cout << "I'm fucking you really hard, bitch!" << std::endl;
-    }
-};

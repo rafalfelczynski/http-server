@@ -17,13 +17,13 @@ using namespace std::chrono_literals;
 int main()
 {
     HttpServer server("0.0.0.0");
-    server.registerCallback(HttpMethod::Get, Url("/students"), [](auto)->auto{
+    server.registerCallback(HttpMethod::Get, Url("/students"), [](const auto&)->auto{
         std::cout << "callback processed" << std::endl;
         static int i=0;
         auto iStr = std::to_string(i);
         std::unordered_map<std::string, std::string> data = {{"name", "Rafal"}, {"surname", "Felczynski"}};
         auto htmlContents = FileReader::read("../../pages/index.html");
-        htmlContents = HtmlDecoder().replace(htmlContents, data);
+        htmlContents = HtmlDecoder().replace(htmlContents, data) + " " + iStr;
 
         auto msg = "HTTP/1.1 200 OK\r\n"
                     "Cache-Control: no-cache, private\r\n"
@@ -34,7 +34,6 @@ int main()
         i++;
         return msg;
      });
-    EventDispatcher dis;
     server.run();
     return 0;
 }

@@ -8,27 +8,29 @@
 class EventSystem
 {
 public:
-    EventSystem() : threads_(NUM_OF_THREADS)
+    static EventSystem& getInstance()
     {
-        threads_.accept([this](){});
+        static EventSystem system;
+        return system;
+    }
+
+    void listen(IEventListener* listener, EventType type)
+    {
+        eventDispatcher_.listen(listener, type);
     }
 
     void post(const std::shared_ptr<IEvent>& event)
     {
-        events_.emplace_back(event);
+        eventDispatcher_.post(event);
     }
 
     template<typename EventType, typename... Args>
     void post(Args&&... args)
     {
-        events_.emplace_back(std::make_shared<EventType>(std::forward<Args>(args)...));
-    }
-
-    void processEvents()
-    {
-        while()
+        eventDispatcher_.post<EventType, Args...>(std::forward<Args>(args)...);
     }
 
 private:
+    EventSystem() = default;
     EventDispatcher eventDispatcher_;
 };

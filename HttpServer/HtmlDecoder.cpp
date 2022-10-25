@@ -12,7 +12,7 @@ std::vector<Placeholder> HtmlDecoder::findFragmentsWithDataPlaceholders(const st
 {
     static const auto seq = std::string("@(\\w+).(\\w+)");
     static const std::regex word_regex(seq);
-    static std::smatch matches;
+    std::smatch matches;
     size_t lastMatchEndPos = 0;
 
     std::vector<Placeholder> fragments;
@@ -28,27 +28,29 @@ std::vector<Placeholder> HtmlDecoder::findFragmentsWithDataPlaceholders(const st
 
 std::string HtmlDecoder::joinFragments(std::vector<Placeholder>&& fragments, const std::unordered_map<std::string, std::string>& data)
 {
-    std::string textCopy;
+    std::string joinedDocument;
 
-    auto copyStr = [&textCopy](std::string& str) { textCopy += std::move(str); };
-    auto fillPlaceholder = [&textCopy, &data](const DataPlaceholder& place) {
+    auto copyStr = [&joinedDocument](const std::string& str) { joinedDocument.append(str); };
+    auto substituteData = [&joinedDocument, &data](const DataPlaceholder& place) {
+        // data param should be a map of data maps.
+        // then find place.mapName
         auto valueIt = data.find(place.keyName);
         if (valueIt != data.end())
         {
-            textCopy.append(valueIt->second);
+            joinedDocument.append(valueIt->second);
         }
         else
         {
-            textCopy.append("@" + place.mapName + "." + place.keyName);
+            joinedDocument.append("@" + place.mapName + "." + place.keyName);
         }
     };
 
-    auto visitor = helpers::compose{std::move(copyStr), std::move(fillPlaceholder)};
+    auto visitor = helpers::compose{std::move(copyStr), std::move(substituteData)};
     for (auto& pl : fragments)
     {
         std::visit(visitor, pl);
     }
-    return textCopy;
+    return joinedDocument;
 }
 
 std::string HtmlDecoder::replace(const std::string& text, const std::unordered_map<std::string, std::string>& data)

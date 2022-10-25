@@ -1,89 +1,114 @@
 #include "SocketController.h"
+
 #include <algorithm>
 
 namespace http
 {
-ConnectionListener::ConnectionListener(const std::shared_ptr<Socket>& socket)
+ConnectionHandler::ConnectionHandler(const std::shared_ptr<ListeningSocket>& socket)
     : socket_(socket)
-    , connectionListener_{1}
+    //, connectionListener_{1}
     , isListening_(true)
 {
-    std::cout << "connection listener created" << std::endl;
 }
 
-void ConnectionListener::setUp()
+ConnectionHandler::~ConnectionHandler()
 {
-    connectionListener_.process([this]() {
+    removeListener();
+    isListening_ = false;
+    worker_.join();
+}
+
+void ConnectionHandler::setUp()
+{
+    worker_.acceptJob([this]() {
         while (isListening_)
         {
             std::cout << "waiting for client to connect" << std::endl;
             auto clientId = socket_->waitForClientToConnect();
-            std::cout << "client connected" << std::endl;
-            if (clientId.has_value())
+            if (clientId)
             {
-                std::cout << "client with id: " << *clientId << std::endl;
-                this->publish(*clientId);
+                std::cout << "client connected with id: " << *clientId << std::endl;
+                if (listener_)
+                {
+                    listener_->onClientConnected(*clientId);
+                }
             }
             else
             {
-                std::cout << "error client without id: " << *clientId << std::endl;
+                std::cout << "error client without id: " << std::endl;
                 // error occurred
             }
         }
     });
 }
 
-void ConnectionListener::join()
+void ConnectionHandler::join()
 {
-    connectionListener_.joinAll();
+    worker_.join();
+}
+
+void ConnectionHandler::setListener(IListener* listener)
+{
+    this->listener_ = listener;
+}
+
+void ConnectionHandler::removeListener()
+{
+    this->listener_ = nullptr;
 }
 
 SocketController::SocketController(std::string hostNameOrAddress, std::string serviceNameOrPort)
-    : socketInUse_(std::make_shared<Socket>(std::move(hostNameOrAddress), std::move(serviceNameOrPort)))
-    , connectionListener_(socketInUse_)
-    , clientController_(socketInUse_)
+    : clientsHolder_(std::make_shared<SocketClientsHolder>())
+    , socketInUse_(std::make_shared<ListeningSocket>(
+          std::move(hostNameOrAddress), std::move(serviceNameOrPort)))
+    , connectionHandler_(socketInUse_)
+    , clientController_(socketInUse_, clientsHolder_)
 {
-    connectionListener_.addObserver(this);
-    clientController_.addObserver(this);
+    socketInUse_->setClientsHolder(clientsHolder_);
+    clientController_.setListener(this);
     socketInUse_->bind();
     if (socketInUse_->isBound())
     {
-        connectionListener_.setUp();
+        connectionHandler_.setListener(this);
+        connectionHandler_.setUp();
     }
 }
 
-void SocketController::join() 
+void SocketController::join()
 {
-    connectionListener_.join();
+    connectionHandler_.join();
 }
 
-void SocketController::sendBack(unsigned clientId, const std::string& msg) 
+void SocketController::sendResponse(RequestId requestId, const HttpResponse& msg)
 {
-    std::cout << "sending back" << std::endl;
-    clientController_.asyncSendData(clientId, msg);
+    // parse http response to string to send via socket
+    clientController_.asyncSendData(requestToClientMap_[requestId], msg.msg);
+    requestToClientMap_.erase(requestId);
 }
 
-void SocketController::onPublisherNotification(const unsigned& clientId) // called when new client has been connected
+void SocketController::addHttpListener(IHttpRequestListener* listener)
 {
-    std::cout << "client connected. receive process" << std::endl;
-    // static int i=0;
-    // auto iStr = std::to_string(i);
+    if (listener)
+    {
+        if (std::find(httpReqListeners_.begin(), httpReqListeners_.end(), listener) == httpReqListeners_.end())
+        {
+            httpReqListeners_.push_back(listener);
+        }
+    }
+}
 
-    // auto msg = "HTTP/1.1 200 OK\r\n"
-    //             "Cache-Control: no-cache, private\r\n"
-    //             "Content-Type: text/plain\r\n"
-    //             "Content-Length: 8\r\n"
-    //             "\r\n"
-    //             "Hello" + std::string(3 - std::min(size_t(3), iStr.size()), '0') + iStr;
-    // i++;
-    // clientController_.asyncSendData(clientId, msg);
+void SocketController::onClientConnected(unsigned clientId)
+{
     clientController_.asyncReceiveData(clientId);
 }
 
-void SocketController::onPublisherNotification(const ReceivedClientData& clientData) // called when client sent their mesage
+void SocketController::onRequestReceived(const HttpRequest& request)
 {
-    std::cout << "msg received" << std::endl;
-    this->publish(clientData);
+    requestToClientMap_.emplace(request.getId(), request.getSender());
+    for (auto* lis : httpReqListeners_)
+    {
+        lis->onHttpRequest(request);
+    }
 }
 
 void SocketController::checkForNewClientConnections()

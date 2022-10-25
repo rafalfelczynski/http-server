@@ -1,8 +1,11 @@
 #pragma once
 
+#include <string>
+
 namespace http
 {
-class HttpResponse
+struct HttpResponse
 {
+    std::string msg;
 };
 }  // namespace http

@@ -28,14 +28,6 @@ public:
         queue_.emplace_back(std::forward<Element>(element));
     }
 
-    // inline Type dequeue()
-    // {
-    //     std::lock_guard lock(mutex_);
-    //     auto element{std::move(queue_.front())};
-    //     queue_.pop();
-    //     return element;
-    // }
-
     inline std::optional<Type> dequeue()
     {
         std::lock_guard lock(mutex_);

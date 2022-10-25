@@ -1,22 +1,22 @@
 #pragma once
 
-#include <memory>
-#include <map>
 #include <deque>
+#include <map>
+#include <memory>
 #include <optional>
+
+#include "SafeQueue/SafeQueue.h"
 
 #include "IEvent.hpp"
 #include "IEventListener.hpp"
 #include "ThreadPool.h"
-#include "SafeQueue/SafeQueue.h"
-
 
 struct EventDispatcher
 {
 public:
-    EventDispatcher() : isRunning_{true}, workers_(NUM_OF_THREADS), dispatcherThread_(1)
+    EventDispatcher()
+        : dispatcherThread_(1)
     {
-        dispatcherThread_.process([this](){ processEvents(); });
     }
 
     void listen(IEventListener* listener, EventType type)
@@ -26,44 +26,26 @@ public:
 
     void post(const std::shared_ptr<IEvent>& event)
     {
-        events_.enqueue(event);
+        dispatcherThread_.process([this, event]() { this->dispatch(event); });
     }
 
     template<typename EventType, typename... Args>
     void post(Args&&... args)
     {
-        events_.enqueue(std::make_shared<EventType>(std::forward<Args>(args)...));
+        auto event = std::make_shared<EventType>(std::forward<Args>(args)...);
+        dispatcherThread_.process([this, event = std::move(event)]() { this->dispatch(event); });
     }
 
+private:
     void dispatch(const std::shared_ptr<IEvent>& event)
     {
         const auto& [lisBegin, lisEnd] = eventListeners_.equal_range(event->type());
-        for(auto listenerIt = lisBegin; listenerIt != lisEnd; listenerIt++)
+        for (auto listenerIt = lisBegin; listenerIt != lisEnd; listenerIt++)
         {
             listenerIt->second->onEvent(event);
         }
     }
 
-    void processEvents()
-    {
-        while(isRunning_)
-        {
-            while(!events_.empty())
-            {
-                auto evOpt = events_.dequeue();
-                if(evOpt)
-                {
-                    dispatch(*evOpt); // dispatch should be called on threads
-                }
-            }
-        }
-    }
-
-private:
-    static constexpr unsigned NUM_OF_THREADS = 2;
-    std::multimap<EventType, IEventListener*> eventListeners_;
-    http::ThreadPool workers_;
+    std::multimap<EventType, IEventListener*> eventListeners_;  // change to thread-safe multimap
     http::ThreadPool dispatcherThread_;
-    collections::SafeQueue<std::shared_ptr<IEvent>> events_;
-    bool isRunning_;
 };

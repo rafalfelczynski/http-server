@@ -124,7 +124,6 @@ void WorkerThread::doOneJob()
     if (job)
     {
         isExecutingJob_ = true;
-        std::cout << "job->execute()" << std::endl;
         (*job)->execute();
     }
     isExecutingJob_ = false;

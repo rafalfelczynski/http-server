@@ -34,6 +34,7 @@ struct hash<http::Endpoint>
 {
     size_t operator()(const http::Endpoint& endpoint) const
     {
+        // TODO
         return 0;
     }
 };
@@ -41,17 +42,18 @@ struct hash<http::Endpoint>
 
 namespace http
 {
-class HttpServer : private observer::ISubscriber<ReceivedClientData>
+class HttpServer : private IHttpRequestListener
 {
+using CallbackFcn = std::function<std::string(const HttpRequest&)>;
 public:
     HttpServer(std::string serverName);
     void registerCallback(HttpMethod method, const Url& url, std::unique_ptr<ICallback> callback);
-    void registerCallback(HttpMethod method, const Url& url, std::function<std::string(HttpRequest)> function);
+    void registerCallback(HttpMethod method, const Url& url, CallbackFcn function);
 
     void run();
 
 private:
-    void onPublisherNotification(const ReceivedClientData& clientData) override;
+    void onHttpRequest(const HttpRequest& req) override;
     std::unique_ptr<SocketController> socketController_;
     std::unordered_map<Endpoint, std::unique_ptr<ICallback>> callbacks_;
 };

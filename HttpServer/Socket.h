@@ -19,38 +19,54 @@
 
 #include "SocketClientsHolder.h"
 
+#include "ConnectedSocket.h"
+
 namespace http
 {
-class Socket
+enum class SocketState
+{
+    Idle,
+    Waiting,
+    Finished
+};
+
+// Should rather be rather ListeningSocket class?
+class ListeningSocket
 {
 public:
-    Socket(std::string host, std::string service = "http", unsigned bufferSize = 2048);
-    ~Socket();
+    ListeningSocket(std::string host, std::string service = "http", unsigned bufferSize = 2048);
+    ~ListeningSocket();
     void bind();
     void release();
     void setInListeningState();
     std::optional<unsigned> waitForClientToConnect();
     void asyncListenClientToConnect();
-    std::optional<std::string> receiveData(unsigned clientId) const;
-    void sendData(unsigned clientId, const std::string& msg) const;
+    // std::string receiveData(unsigned clientId);
+    // void sendData(unsigned clientId, const std::string& msg) const;
     bool isBound() const;
-    void releaseClient(unsigned clientId) const;
+
+    void setClientsHolder(const std::shared_ptr<SocketClientsHolder>& clientsHolder)
+    {
+        clientsHolder_ = clientsHolder;
+    }
 
 private:
     bool initializeSocketLib();
     bool getSocketAddressInfo();
     bool createSocketListener();
     bool bindListener();
-    int processPartOfMsg(const SOCKET& client, std::string& receivedMsg) const;
-    std::string processMessage(const SOCKET& client) const;
+    // int receivePartOfMsg(const SOCKET& client, std::string& receivedMsg);
+    // std::string receiveMessageFromClient(const SOCKET& client);
 
     std::string host_;
     std::string service_;
     const unsigned bufferSize_;
     bool bound_ = false;
-    ADDRINFO* addressInfo_ = nullptr;
+    ADDRINFO* sockAddressInfo_ = nullptr;
     SOCKET listener_;
-    SocketClientsHolder clientsHolder_;
-    sockaddr clientInfo_;
+    std::shared_ptr<SocketClientsHolder> clientsHolder_;
+    std::unordered_map<SOCKET, sockaddr_in> socketToClientAddr_;
+    mutable std::mutex mutex;
+    std::unordered_map<SOCKET, SocketState> socketToState_;
 };
 }  // namespace http

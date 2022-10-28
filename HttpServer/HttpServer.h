@@ -47,13 +47,14 @@ class HttpServer : private IHttpRequestListener
 using CallbackFcn = std::function<std::string(const HttpRequest&)>;
 public:
     HttpServer(std::string serverName);
+    ~HttpServer();
     void registerCallback(HttpMethod method, const Url& url, std::unique_ptr<ICallback> callback);
     void registerCallback(HttpMethod method, const Url& url, CallbackFcn function);
 
     void run();
 
 private:
-    void onHttpRequest(const HttpRequest& req) override;
+    HttpResponse onHttpRequest(const HttpRequest& req) override;
     std::unique_ptr<SocketController> socketController_;
     std::unordered_map<Endpoint, std::unique_ptr<ICallback>> callbacks_;
 };

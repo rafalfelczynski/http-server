@@ -11,8 +11,13 @@ namespace http
 HttpServer::HttpServer(std::string serverName)
     : socketController_(std::make_unique<SocketController>(std::move(serverName), "http"))
 {
-    socketController_->addHttpListener(this);
+    socketController_->setHttpListener(this);
     // EventSystem::getInstance().listen(this, ClientDataReceivedEvent::EVENT_TYPE);
+}
+
+HttpServer::~HttpServer()
+{
+    std::cout << "server removed" << std::endl;
 }
 
 void HttpServer::registerCallback(HttpMethod method, const Url& url, std::unique_ptr<ICallback> callback)
@@ -40,6 +45,7 @@ void HttpServer::registerCallback(HttpMethod method, const Url& url, CallbackFcn
 
 void HttpServer::run()
 {
+    socketController_->start();
     // do sth
     // wait on condition variable instead of joining
     socketController_->join();
@@ -50,7 +56,7 @@ void HttpServer::run()
     */
 }
 
-void HttpServer::onHttpRequest(const HttpRequest& request)
+HttpResponse HttpServer::onHttpRequest(const HttpRequest& request)
 {
     // parse string to http request
     // validate request and call callback
@@ -75,15 +81,21 @@ void HttpServer::onHttpRequest(const HttpRequest& request)
 "<hr><center>nginx/0.8.54</center>"
 "</body>"
 "</html>";
-        socketController_->sendResponse(request.getId(), HttpResponse{"HTTP/1.1 404 Not Found\r\n"
+        // socketController_->sendResponse(request.getId(), HttpResponse{"HTTP/1.1 404 Not Found\r\n"
+        //             "Cache-Control: no-cache, private\r\n"
+        //             "Content-Type: text/html\r\n"
+        //             "Content-Length: " + std::to_string(notFoundPage.size()) + "\r\n"
+        //             "\r\n"
+        //             + notFoundPage});
+        return HttpResponse{"HTTP/1.1 404 Not Found\r\n"
                     "Cache-Control: no-cache, private\r\n"
                     "Content-Type: text/html\r\n"
                     "Content-Length: " + std::to_string(notFoundPage.size()) + "\r\n"
                     "\r\n"
-                    + notFoundPage});
-        return;
+                    + notFoundPage};
     }
     auto responseStr = (*callbacks_[endpoint])(request);
-    socketController_->sendResponse(request.getId(), HttpResponse{responseStr});
+    return HttpResponse{responseStr};
+    //socketController_->sendResponse(request.getId(), HttpResponse{responseStr});
 }
 }  // namespace http

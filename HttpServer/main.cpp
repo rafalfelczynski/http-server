@@ -35,5 +35,7 @@ int main()
         return msg;
      });
     server.run();
+
+    //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
     return 0;
 }

@@ -1,9 +1,10 @@
 #include "SocketClientsHolder.h"
 
-#include <WinSock2.h>
-#include <functional>
 #include <algorithm>
+#include <functional>
 #include <iostream>
+
+#include <WinSock2.h>
 
 namespace http
 {
@@ -16,29 +17,31 @@ SocketClientsHolder::SocketClientsHolder()
     clients_.reserve(DEFUALT_NUM_OF_CLIENTS);
 }
 
-std::optional<ConnectedSocket> SocketClientsHolder::getClient(unsigned clientId) const
+std::shared_ptr<ConnectedSocket> SocketClientsHolder::getClient(unsigned clientId)
 {
     std::lock_guard lock(mutex_);
     auto clientIter = clients_.find(clientId);
     if (clientIter != clients_.end())
     {
-        return {clientIter->second};
+        return clientIter->second;
     }
-    return {};
+    throw std::logic_error("No client with id " + std::to_string(clientId));
 }
 
 unsigned SocketClientsHolder::getOrAddSocketClient(const SOCKET& client)
 {
     std::lock_guard lock(mutex_);
-    const auto& clientIt = std::find_if(clients_.begin(), clients_.end(), [&client](const auto& idSocket){return client == idSocket.second.getSocket();});
-    if(clientIt != clients_.end())
+    const auto& clientIt = std::find_if(clients_.begin(), clients_.end(), [&client](const auto& idSocket) {
+        return client == idSocket.second->getSocket();
+    });
+    if (clientIt != clients_.end())
     {
         std::cout << "This socket was already used, client known" << std::endl;
         return clientIt->first;
     }
 
     auto clientId = chooseNextId();
-    clients_.emplace(clientId, ConnectedSocket(clientId, client));
+    clients_.emplace(clientId, std::make_shared<ConnectedSocket>(clientId, client));
     return clientId;
 }
 
@@ -54,7 +57,7 @@ std::vector<unsigned> SocketClientsHolder::getAllClientIds() const
     return clientIds;
 }
 
-ConnectedSocket SocketClientsHolder::operator[](unsigned clientId) const
+std::shared_ptr<ConnectedSocket> SocketClientsHolder::operator[](unsigned clientId)
 {
     std::lock_guard lock(mutex_);
     return clients_.at(clientId);
@@ -63,12 +66,18 @@ ConnectedSocket SocketClientsHolder::operator[](unsigned clientId) const
 std::optional<unsigned> SocketClientsHolder::getClientId(const ConnectedSocket& client) const
 {
     std::lock_guard lock(mutex_);
-    const auto& clientIt = std::find_if(clients_.begin(), clients_.end(), [&client](const auto& idSocket){return client == idSocket.second;});
-    if(clientIt != clients_.end())
+    const auto& clientIt = std::find_if(
+        clients_.begin(), clients_.end(), [&client](const auto& idSocket) { return client == *idSocket.second; });
+    if (clientIt != clients_.end())
     {
         return clientIt->first;
     }
     return {};
+}
+
+void SocketClientsHolder::removeClient(unsigned clientId)
+{
+    clients_.erase(clientId);
 }
 
 unsigned SocketClientsHolder::chooseNextId()

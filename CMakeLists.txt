@@ -20,7 +20,6 @@ add_executable(HttpServer
     HttpServer/SocketClientsHolder.cpp
     HttpServer/ThreadPool.cpp
     HttpServer/SocketController.cpp
-    HttpServer/SocketClientDataReceiver.cpp
     HttpServer/Url.cpp
     HttpServer/HtmlDecoder.cpp
     HttpServer/FileReader.cpp
@@ -36,6 +35,7 @@ include_directories(${EXTERNAL_INSTALL_LOCATION})
 include_directories(${CMAKE_CURRENT_LIST_DIR})
 
 add_dependencies(HttpServer Timer)
-target_link_libraries(HttpServer ${EXTERNAL_INSTALL_LOCATION}/lib/Timer.lib)
+target_link_libraries(HttpServer ${EXTERNAL_INSTALL_LOCATION}/lib/Timer.lib
+    ws2_32.lib)
 
 # Include sub-projects.

@@ -34,15 +34,12 @@ enum class SocketState
 class ListeningSocket
 {
 public:
-    ListeningSocket(std::string host, std::string service = "http", unsigned bufferSize = 2048);
+    ListeningSocket(const std::string& host, const std::string& service = "http", unsigned bufferSize = 2048);
     ~ListeningSocket();
     void bind();
     void release();
     void setInListeningState();
     std::optional<unsigned> waitForClientToConnect();
-    void asyncListenClientToConnect();
-    // std::string receiveData(unsigned clientId);
-    // void sendData(unsigned clientId, const std::string& msg) const;
     bool isBound() const;
 
     void setClientsHolder(const std::shared_ptr<SocketClientsHolder>& clientsHolder)
@@ -55,8 +52,6 @@ private:
     bool getSocketAddressInfo();
     bool createSocketListener();
     bool bindListener();
-    // int receivePartOfMsg(const SOCKET& client, std::string& receivedMsg);
-    // std::string receiveMessageFromClient(const SOCKET& client);
 
     std::string host_;
     std::string service_;

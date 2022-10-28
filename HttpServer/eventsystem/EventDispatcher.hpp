@@ -17,6 +17,7 @@ public:
     EventDispatcher()
         : dispatcherThread_(1)
     {
+        dispatcherThread_.init();
     }
 
     void listen(IEventListener* listener, EventType type)

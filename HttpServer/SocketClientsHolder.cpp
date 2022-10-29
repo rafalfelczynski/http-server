@@ -77,6 +77,7 @@ std::optional<unsigned> SocketClientsHolder::getClientId(const ConnectedSocket& 
 
 void SocketClientsHolder::removeClient(unsigned clientId)
 {
+    std::lock_guard lock(mutex_);
     clients_.erase(clientId);
 }
 

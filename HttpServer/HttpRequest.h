@@ -12,7 +12,9 @@ using ClientId = unsigned;
 
 struct HttpRequest
 {
-    friend class HttpRequestBuilder;
+    std::string method_;
+    std::string url_;
+    std::string version_;
 
     std::vector<std::unique_ptr<IHeader>> headers;
     std::string content;
@@ -29,25 +31,5 @@ struct HttpRequest
 
     RequestId id_;
     ClientId sender_;
-};
-
-class HttpRequestBuilder
-{
-public:
-    HttpRequest build()
-    {
-        // auto content = HtmlHeadersParser().prepare(headers_);
-        std::string content;
-        return HttpRequest{std::move(headers_), content};
-    }
-
-    HttpRequestBuilder& withHeader(std::unique_ptr<IHeader> header)
-    {
-        headers_.emplace_back(std::move(header));
-        return *this;
-    }
-
-private:
-    std::vector<std::unique_ptr<IHeader>> headers_;
 };
 }  // namespace http

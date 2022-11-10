@@ -10,6 +10,8 @@
 #include "eventsystem/EventDispatcher.hpp"
 
 #include "HtmlHeaders/TypeMap.h"
+#include <ranges>
+#include <string_view>
 
 using namespace http;
 using namespace std;
@@ -38,10 +40,25 @@ int main()
     //  });
     // server.run();
 
-    HeadersReader reader;
-    reader.registerHeaders<H1, H2, H3>();
-    std::cout << reader.get().size() << std::endl;
-
     //std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
+
+
+    std::string_view s{"linia1"};
+
+    auto delim = std::string_view("..");
+
+    auto spl = s | std::views::split(delim) | std::views::transform([](const auto &view){
+        std::cout << "view" << std::endl;
+        return std::string_view(view.begin(), view.end());
+    });
+
+    for(const auto& ss : spl)
+    {
+        std::cout << "ss: " << ss << " size: " << ss.size() << std::endl;
+    }
+    std::cout << "empty? " << spl.empty() << std::endl;
+
+
     return 0;
 }

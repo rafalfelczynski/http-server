@@ -54,16 +54,7 @@ struct IHttpRequestListener
 struct ClientDataParser
 {
     virtual ~ClientDataParser() = default;
-    HttpRequest parseData(unsigned clientId, const std::string& clientData)  // maybe move, not const ref
-    {
-        static RequestId requestId = 0;
-        // builder needed
-        auto req = HttpRequest();
-        req.id_ = requestId++;
-        req.sender_ = clientId;
-        req.content = clientData;
-        return req;
-    }
+    HttpRequest parseData(unsigned clientId, const std::string& clientData);
 };
 
 using ClientId = unsigned;

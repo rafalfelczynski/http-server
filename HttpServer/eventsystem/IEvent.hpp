@@ -11,7 +11,7 @@ struct BadEventCast : std::exception
     {
     }
 
-    const char* what() const override
+    const char* what() const noexcept override
     {
         return msg_.c_str();
     }

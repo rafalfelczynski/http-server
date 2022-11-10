@@ -5,6 +5,7 @@
 #include "eventsystem/EventSystem.hpp"
 #include <ranges>
 #include <string_view>
+#include "HtmlHeaders/HeaderReader.h"
 
 namespace http
 {
@@ -69,6 +70,8 @@ HttpResponse HttpServer::onHttpRequest(const HttpRequest& request)
     const auto& method = *words.begin();
     const auto& url = *std::next(words.begin());
     std::cout << "url: " << url << std::endl;
+
+
     auto endpoint = Endpoint(Url(std::string(url)), HttpMethod::Get);  // get from request
     if (!callbacks_.count(endpoint))
     {

@@ -4,6 +4,7 @@
 
 #include "IHeader.hpp"
 #include "RequestHeaders.h"
+#include "Utils.h"
 
 namespace http
 {
@@ -61,30 +62,46 @@ struct HeadersReader
             UserAgent,
             Upgrade,
             Via,
-            Warning
-            >();
+            Warning>();
     }
 
     std::vector<std::unique_ptr<IHeader>> readHeaders(const std::string_view& httpMessage)
     {
         std::vector<std::unique_ptr<IHeader>> headers;
-        for (auto& [name, value] : headerNameToValue_)
+
+        constexpr std::string_view HEADER_LINE_END{"\r\n"};
+        auto lines = httpMessage | std::ranges::views::lazy_split(HEADER_LINE_END);
+        for (const auto& line :
+             lines | std::views::drop(1) | std::views::take_while([](const auto& line) { return !line.empty(); }))
         {
-            auto header = headerPrototypes.at(name)->clone();
-            header->fromString(value);
-            headers.push_back(std::move(header));
+            auto lineView = std::string_view(&*line.begin(), std::ranges::distance(line));
+            auto header = readHeader(lineView);
+            if (header)
+            {
+                headers.push_back(std::move(header));
+            }
         }
         return headers;
     }
 
-    std::unique_ptr<IHeader> readHeader(const std::string_view& name, const std::string_view& value)
+    std::unique_ptr<IHeader> readHeader(std::string_view lineView)
     {
-        std::cout << "header name: " << name << " size: " << name.size() << " has: " << headerPrototypes.count(std::string(name)) << std::endl;
-        if(headerPrototypes.count(std::string(name)))
+        auto splitLine = lineView | std::ranges::views::split(':') | std::views::transform([](const auto& el) {
+                             auto view = std::string_view(&*el.begin(), el.size());
+                             return utils::trim(view);
+                         });
+        if (std::ranges::distance(splitLine) == 2)
         {
-            auto header = headerPrototypes.at(std::string(name))->clone();
-            header->fromString(std::string(value));
-            return header;
+            auto fragmentsIt = splitLine.begin();
+            auto headerName = std::string(*fragmentsIt++);
+            auto value = std::string(*fragmentsIt);
+            auto prototypeIt = headerPrototypes.find(headerName);
+            if (prototypeIt != headerPrototypes.end())
+            {
+                auto header = prototypeIt->second->clone();
+                header->fromString(value);
+                return header;
+            }
         }
         return {};
     }

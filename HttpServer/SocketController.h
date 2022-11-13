@@ -55,6 +55,8 @@ struct ClientDataParser
 {
     virtual ~ClientDataParser() = default;
     HttpRequest parseData(unsigned clientId, const std::string& clientData);
+private:
+    void readUri(HttpRequest& req, const std::string& clientData);
 };
 
 using ClientId = unsigned;

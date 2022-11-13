@@ -6,6 +6,7 @@
 #include "ThirdParty/Timer.hpp"
 
 #include "HtmlHeaders/HeaderReader.h"
+#include "Utils.h"
 
 namespace http
 {
@@ -168,83 +169,16 @@ std::string SocketController::onSocketDataReceived(unsigned clientId, const std:
 
 HttpRequest ClientDataParser::parseData(unsigned clientId, const std::string& clientData)  // maybe move, not const ref
 {
-    constexpr auto trim = [](std::string_view view){
-        while(view.size() > 0 && std::isspace(view.front()))
-        {
-            view.remove_prefix(1);
-        }
-
-        while(view.size() > 0 && std::isspace(view.back()))
-        {
-            view.remove_suffix(1);
-        }
-        return view;
-    };
     static RequestId requestId = 0;
 
     // builder needed
     constexpr std::string_view HEADERS_AND_DATA_DELIM{"\r\n\r\n"};
-    auto headersEndIter = clientData.find(HEADERS_AND_DATA_DELIM);
-    
-
-
-
-
-
-
-
-    constexpr std::string_view HEADER_LINE_END{"\r\n"};
-    auto lines = clientData | std::ranges::views::lazy_split(HEADER_LINE_END);
-    if(lines.empty())
-    {
-        std::cout << "empty message" << std::endl;
-        return {};
-    }
-
-    const auto& line = lines.front();
-    auto words = line | std::ranges::views::lazy_split(' ') | std::ranges::views::transform([](auto &&rng) {
-            return std::string_view(&*rng.begin(), std::ranges::distance(rng));
-    });
-    auto wordsIt = words.begin();
-    const auto& method = *wordsIt++;
-    const auto& url = *wordsIt++;
-    const auto& version = *wordsIt; // Maybe remove \r\n
+    auto contentStart = clientData.find(HEADERS_AND_DATA_DELIM) + HEADERS_AND_DATA_DELIM.size();
 
     auto req = HttpRequest();
+    readUri(req, clientData);
     HeadersReader reader;
-
-    //if there was header_line splitted....
-    size_t contentStart = std::ranges::distance(line) + HEADER_LINE_END.size();
-    for(const auto& line : lines | std::views::drop(1) | std::views::take_while([](const auto& line){ return !line.empty(); }))
-    {
-        auto lineView = std::string_view(&*line.begin(), std::ranges::distance(line));
-        contentStart += lineView.size() + HEADER_LINE_END.size(); // set index to pos 1 past the line size plus \r\n removed by splitting
-
-        auto splitLine = lineView | std::ranges::views::split(':') | std::views::transform([](const auto& el){
-                auto view = std::string_view(&*el.begin(), el.size());
-                return trim(view);
-            });
-        if(std::ranges::distance(splitLine) == 2)
-        {
-            auto fragmentsIt = splitLine.begin();
-            auto hView = *fragmentsIt++;
-            auto vView = *fragmentsIt;
-
-            std::cout << "h: " << hView << " v: " << vView << std::endl;
-            req.headers.push_back(reader.readHeader(hView, vView));
-        }
-    }
-
-    // if there were some lines before
-    contentStart += HEADER_LINE_END.size();
-
-    std::cout << "num of headers: " << req.headers.size() << std::endl;
-
-    for(const auto& h : req.headers)
-    {
-        if(h)
-        std::cout << h->getValue() << std::endl;
-    }
+    req.headers = reader.readHeaders(std::string_view(clientData.data(), contentStart));
 
     std::string_view content{};
     if(contentStart < clientData.size())
@@ -258,9 +192,32 @@ HttpRequest ClientDataParser::parseData(unsigned clientId, const std::string& cl
     req.id_ = requestId++;
     req.sender_ = clientId;
     req.content = clientData;
-    req.method_ = method;
-    req.url_ = url;
-    req.version_ = version;
     return req;
+}
+
+void ClientDataParser::readUri(HttpRequest& req, const std::string& clientData)
+{
+    constexpr std::string_view HEADER_LINE_END{"\r\n"};
+    auto pos = clientData.find(HEADER_LINE_END);
+    if(pos == std::string::npos)
+    {
+        return;
+    }
+    auto firstLine = std::string_view(clientData.data(), pos);
+
+    auto words = firstLine | std::ranges::views::split(' ') | std::ranges::views::transform([](const auto &rng) {
+        return std::string_view(rng.begin(), rng.end());
+    }) | std::views::take(3);
+    if(std::ranges::distance(words) != 3)
+    {
+        return;
+    }
+
+    auto wordsIt = words.begin();
+    req.method_ = *wordsIt++;
+    req.url_ = *wordsIt++;
+    req.version_ = utils::trim(*wordsIt);
+
+
 }
 }  // namespace http

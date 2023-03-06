@@ -64,3 +64,5 @@ CMakeSettings.json
 
 # vscode
 .vscode
+
+libs/*
